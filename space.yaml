@@ -20,6 +20,11 @@ service:
   command: node node_modules/.bin/tsx server/index.ts
   port: 8787
   health: /healthz
+  # 运营方单元 (deploy/dot-lib.service) 用 Environment= 设的固定值, 让 space-dot-lib.service 跑得一样。
+  env:
+    NODE_ENV: "production"
+    HOST: "127.0.0.1"
+    NODE_OPTIONS: "--max-old-space-size=256"
 
 # 面板小组件: 最近有阅读动静的 3 本书。契约 {ok, items:[{text,url,time}]}。
 widgets:

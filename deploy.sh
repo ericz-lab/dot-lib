@@ -51,14 +51,22 @@ fi
 echo "==> Installing runtime dependencies"
 ssh "$DEPLOY_HOST" "cd '$DEPLOY_PATH' && npm install --omit=dev --no-audit --no-fund"
 
-echo "==> Installing user systemd unit ${SERVICE}.service"
-remote_dir=$(ssh "$DEPLOY_HOST" "cd '$DEPLOY_PATH' && pwd")
-sed -e "s|@DIR@|${remote_dir}|g" deploy/dot-lib.service |
-  ssh "$DEPLOY_HOST" "mkdir -p ~/.config/systemd/user && cat > ~/.config/systemd/user/${SERVICE}.service"
-ssh "$DEPLOY_HOST" "loginctl enable-linger \$(whoami) 2>/dev/null || true; systemctl --user daemon-reload && systemctl --user enable '${SERVICE}'"
+APP=dot-lib
+if ssh "$DEPLOY_HOST" "systemctl --user cat 'space-$APP.service' >/dev/null 2>&1"; then
+  # ai-space runs this app (SPACE_SUPERVISOR=space, ai-space docs/supervision.md): restart its unit, never ours.
+  echo "==> Restarting space-$APP.service (ai-space supervises $APP)"
+  ssh "$DEPLOY_HOST" "\$HOME/.local/bin/space app restart '$APP'"
+  echo "  -> $APP restarted (space-$APP.service)"
+else
+  echo "==> Installing user systemd unit ${SERVICE}.service"
+  remote_dir=$(ssh "$DEPLOY_HOST" "cd '$DEPLOY_PATH' && pwd")
+  sed -e "s|@DIR@|${remote_dir}|g" deploy/dot-lib.service |
+    ssh "$DEPLOY_HOST" "mkdir -p ~/.config/systemd/user && cat > ~/.config/systemd/user/${SERVICE}.service"
+  ssh "$DEPLOY_HOST" "loginctl enable-linger \$(whoami) 2>/dev/null || true; systemctl --user daemon-reload && systemctl --user enable '${SERVICE}'"
 
-echo "==> Restarting ${SERVICE}"
-ssh "$DEPLOY_HOST" "systemctl --user restart '${SERVICE}'"
+  echo "==> Restarting ${SERVICE}"
+  ssh "$DEPLOY_HOST" "systemctl --user restart '${SERVICE}'"
+fi
 sleep 4
 
 echo "==> Health check"
