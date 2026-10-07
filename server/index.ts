@@ -1,6 +1,5 @@
-import { serve } from "@hono/node-server";
-import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
+import { serveStatic } from "hono/bun";
 import { logger } from "hono/logger";
 import { nanoid } from "nanoid";
 import {
@@ -352,9 +351,10 @@ app.get("*", serveStatic({ path: "./dist/client/index.html" }));
 // sets HOST=0.0.0.0 in the image because the port is published by the runtime.
 const port = Number(process.env.PORT || 8787);
 const hostname = process.env.HOST || "127.0.0.1";
-const server = serve({ fetch: app.fetch, port, hostname }, (info) => {
-  console.log(`dot-lib listening on http://${info.address}:${info.port}`);
-});
+// idleTimeout: Bun.serve closes a connection silent for 10 s by default, which cuts a slow
+// upload part or a large book still streaming from the bucket; 255 s is its maximum.
+const server = Bun.serve({ fetch: app.fetch, port, hostname, idleTimeout: 255 });
+console.log(`dot-lib listening on http://${server.hostname}:${server.port}`);
 
 // Stop accepting connections on SIGTERM/SIGINT and exit once in-flight requests
 // finish; give up after 8s so systemd's 10s stop timeout is never hit.
@@ -362,7 +362,7 @@ const shutdown = (signal: string) => {
   console.log(`dot-lib received ${signal}, shutting down`);
   const deadline = setTimeout(() => process.exit(1), 8000);
   deadline.unref();
-  server.close(() => process.exit(0));
+  void server.stop().then(() => process.exit(0));
 };
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 process.on("SIGINT", () => shutdown("SIGINT"));

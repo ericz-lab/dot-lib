@@ -18,7 +18,7 @@
 
 | 层 | 技术 |
 | --- | --- |
-| 后端 | Node 22 + Hono + @aws-sdk/client-s3（R2 S3 兼容 API） |
+| 后端 | Bun + Hono + @aws-sdk/client-s3（R2 S3 兼容 API） |
 | 前端 | Vite + 原生 TypeScript + epub.js + pdf.js + mobi.js（vendor 自 foliate-js） |
 | 存储 | S3 兼容对象存储（Cloudflare R2）：`books/{id}/book.epub`（或 `book.pdf`）+ `meta.json` + `cover` + `highlights.json` + `progress.json`；桶、前缀、凭证来自 ai-space 写的 `space.env`（`BLOB_URL` + `S3_*`），或独立部署时的 `R2_*` |
 | 部署 | `deploy.sh`（rsync 到服务器 + 用户级 systemd，免 sudo）；Docker + docker compose 为备选 |
@@ -59,18 +59,18 @@ S3_SECRET_ACCESS_KEY=…
 `server/r2.ts` 优先读 `BLOB_URL` + `S3_*`（`BLOB_URL` 里的前缀会自动加到每个 key 前面），没有时退回 `R2_*`。所以：
 
 - 服务器上：systemd unit 多一行 `EnvironmentFile=-%h/.ai-space/data/dot-lib/space.env`，本机 `.env` 只需要 `PORT`。`deploy.sh` 默认部署到 `~/.ai-space/apps/dot-lib`，ai-space 自动认领；部署到别处则把目录加进 ai-space 的 `SPACE_APPS`。
-- 本地开发：`eval "$(bun <ai-space>/src/index.ts env dot-lib)"` 把变量导入当前 shell，再 `npm run dev`。
+- 本地开发：`eval "$(bun <ai-space>/src/index.ts env dot-lib)"` 把变量导入当前 shell，再 `bun run dev`。
 - 脱离 ai-space：照旧在 `.env` 里填 `R2_*`（见 `.env.example`）。
 
 ## 本地开发
 
 ```bash
 cp .env.example .env   # 填入 R2 凭证（或者用上面的 ai-space env 命令）
-npm install
-npm run dev            # 后端 :8787，前端 :5173（代理 /api）
+bun install
+bun run dev            # 后端 :8787，前端 :5173（代理 /api）
 ```
 
-`tsx` 不会自动读 `.env`，`npm run dev` 需要环境变量已经在 shell 里，例如 `set -a && . ./.env && set +a && npm run dev`，或 `node --env-file=.env`。服务器上由 systemd 的 `EnvironmentFile=` 注入，不受影响。
+Bun 会自动读当前目录的 `.env`，`bun run dev` 直接可用。服务器上由 systemd 的 `EnvironmentFile=` 注入。
 
 R2 凭证获取：Cloudflare 控制台 → R2 → 创建存储桶 → Manage R2 API Tokens → 创建具有该桶读写权限的 Token，得到 Access Key ID / Secret；Account ID 在 R2 概览页右侧。
 
@@ -78,14 +78,14 @@ R2 凭证获取：Cloudflare 控制台 → R2 → 创建存储桶 → Manage R2 
 
 ## 部署到服务器
 
-服务器需要 Node 22+（`/usr/bin/node`）和一个用户级 systemd 会话，不需要 sudo。前端在本地构建后连同 `dist/` 一起同步过去——epub.js 和 pdf.js 都是 devDependency，构建产物里已经打包完毕，服务器不跑 vite，只装运行时依赖，1～2GB 内存的小机器也扛得住。
+服务器需要 Bun（`~/.bun/bin/bun`）和一个用户级 systemd 会话，不需要 sudo。前端在本地构建后连同 `dist/` 一起同步过去——epub.js 和 pdf.js 都是 devDependency，构建产物里已经打包完毕，服务器不跑 vite，只装运行时依赖，1～2GB 内存的小机器也扛得住。
 
 ```bash
 DEPLOY_HOST=ubuntu@your-server ./deploy.sh
 # 可选：DEPLOY_PATH=.ai-space/apps/dot-lib（默认，相对远端 home）、SERVICE=dot-lib（systemd 单元名）
 ```
 
-脚本做的事：本地 `npm run build` → rsync（排除 `node_modules` / `.env` / `.git`）→ 首次部署把本地 `.env` 播种上去（已存在则保留）→ 远端 `npm install --omit=dev` → 把 `deploy/dot-lib.service` 装到 `~/.config/systemd/user/`（每次部署都重装，改了 unit 不用手动操作）→ `loginctl enable-linger` + `systemctl --user enable` → 重启 → 健康检查 `/healthz`。
+脚本做的事：本地 `bun run build`（含服务端类型检查，失败就不部署）→ rsync（排除 `node_modules` / `.env` / `.git`）→ 首次部署把本地 `.env` 播种上去（已存在则保留）→ ai-space 托管时远端跑 `space app deploy dot-lib`（装运行时依赖、同步、重启、等 `/healthz`），否则远端 `bun install --production` → 把 `deploy/dot-lib.service` 装到 `~/.config/systemd/user/`（每次部署都重装，改了 unit 不用手动操作）→ `loginctl enable-linger` + `systemctl --user enable` → 重启 → 健康检查 `/healthz`。
 
 服务只监听 `127.0.0.1:8787`（代码默认值，unit 里再显式给一次），公网访问由前面的一层负责：Cloudflare Tunnel、Nginx/Caddy 均可，顺便解决 HTTPS 与登录（本应用自身不带鉴权）。
 

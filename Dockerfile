@@ -1,19 +1,19 @@
 # ---- build ----
-FROM node:22-alpine AS build
+FROM oven/bun:1-alpine AS build
 WORKDIR /app
-COPY package.json package-lock.json* ./
-RUN npm ci
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile
 COPY . .
-RUN npx vite build web
+RUN bun run build
 
 # ---- runtime ----
-FROM node:22-alpine
+FROM oven/bun:1-alpine
 WORKDIR /app
 ENV NODE_ENV=production HOST=0.0.0.0
-COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev && npm cache clean --force
+COPY package.json bun.lock ./
+RUN bun install --production --frozen-lockfile
 COPY server ./server
 COPY --from=build /app/dist/client ./dist/client
 EXPOSE 8787
-USER node
-CMD ["npx", "tsx", "server/index.ts"]
+USER bun
+CMD ["bun", "server/index.ts"]

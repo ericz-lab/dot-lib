@@ -12,7 +12,7 @@
 
 ## 技术栈与运行模型
 
-- 后端：Node 22 + Hono + `@aws-sdk/client-s3`，`tsx` 直接跑 TS，无构建步骤。
+- 后端：Bun + Hono（`Bun.serve`，`hono/bun` 的静态文件）+ `@aws-sdk/client-s3`，Bun 直接跑 TS，无构建步骤、无运行时转译。
 - 前端：Vite + 原生 TS + epub.js + pdf.js + vendor 的 mobi.js；构建产物 `dist/client/` **提交进仓库**，服务器不跑 vite。
 - 存储：只有对象存储（Cloudflare R2 或任意 S3 兼容），无数据库。key 布局 `books/<id>/{meta.json, book.epub|book.pdf, cover, highlights.json, progress.json}`。
 - 运行：服务器上用户级 systemd 单元 `dot-lib`，工作目录 `~/.ai-space/apps/dot-lib`，`127.0.0.1:8787`。
@@ -56,11 +56,11 @@ Dockerfile, docker-compose.yml  备选方案，当前未用
 ## 常用命令
 
 ```bash
-npm install
-set -a && . ./.env && set +a && npm run dev   # tsx 不读 .env；后端 :8787，前端 :5173
-eval "$(bun <ai-space>/src/index.ts env dot-lib)" && npm run dev   # 用 ai-space 供给的存储变量
-npm run typecheck
-npm run build                                  # vite build → dist/client，提交产物
+bun install
+bun run dev                                    # Bun 自动读 .env；后端 :8787，前端 :5173
+eval "$(bun <ai-space>/src/index.ts env dot-lib)" && bun run dev   # 用 ai-space 供给的存储变量
+bun run typecheck
+bun run build                                  # vite build → dist/client（提交产物）+ 服务端类型检查
 DEPLOY_HOST=<host> ./deploy.sh
 ```
 
@@ -87,8 +87,8 @@ DEPLOY_HOST=<host> ./deploy.sh
 ## 已知坑
 
 - 老的系统级 unit 与 `~/.awesome-agent` 目录已于 2026-09-07 移除，现在只有用户级 unit。
-- `tsx` 不自动读 `.env`，本地开发要先把变量 source 进 shell。
-- `dist/client/` 是提交的，改了前端记得 `npm run build` 再提交，否则服务器拿到的是旧页面。
+- `Bun.serve` 默认 10 秒无数据就断开连接；`server/index.ts` 设了 `idleTimeout: 255`（上限），慢速分片上传和大文件才不会被切断。
+- `dist/client/` 是提交的，改了前端记得 `bun run build` 再提交，否则服务器拿到的是旧页面。
 - `BLOB_URL` 的 `prefix` 一旦非空，桶里已有的 `books/...` 对象就看不见了；这个 app 必须保持 `prefix: ""`。
 - 多台机器共用同一个 R2 桶时（本桶与另一项目共享），删除操作只删 `books/<id>/` 前缀下的 key，不要动其他前缀。
 - Cloudflare 免费版单请求上传上限 100MB，所以大文件走分片上传（8MB 一片）。

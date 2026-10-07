@@ -17,14 +17,18 @@ repo: https://github.com/Zhang-Shubo/dot-lib.git
 
 # 常驻服务。ai-space 传入 PORT, 进程只绑 127.0.0.1; /healthz 不碰对象存储。
 service:
-  command: node node_modules/.bin/tsx server/index.ts
+  command: bun server/index.ts
   port: 8787
   health: /healthz
   # 运营方单元 (deploy/dot-lib.service) 用 Environment= 设的固定值, 让 space-dot-lib.service 跑得一样。
   env:
     NODE_ENV: "production"
     HOST: "127.0.0.1"
-    NODE_OPTIONS: "--max-old-space-size=256"
+
+# deploy.sh 在本地 `bun run build`(vite + 服务端类型检查)后 rsync, 再在服务器上跑 `space app deploy dot-lib`:
+# 只装运行时依赖(epub.js / pdf.js / vite 都是 devDependency, 已打进 dist/), 同步并重启, 等 /healthz。
+deploy:
+  install: bun install --production --frozen-lockfile
 
 # 面板小组件: 最近有阅读动静的 3 本书。契约 {ok, items:[{text,url,time}]}。
 widgets:

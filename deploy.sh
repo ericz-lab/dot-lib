@@ -6,9 +6,9 @@
 #   DEPLOY_HOST=ubuntu@your-server ./deploy.sh
 #   DEPLOY_HOST=my-server DEPLOY_PATH=.ai-space/apps/dot-lib SERVICE=dot-lib ./deploy.sh
 #
-# Requirements on the server: node 22+ on /usr/bin/node and a user systemd
+# Requirements on the server: bun in ~/.bun/bin and a user systemd
 # session (deploy.sh enables linger so the unit survives logout).
-# The frontend is built locally on purpose — epub.js and pdf.js are
+# The frontend is built (and the server type-checked) locally on purpose — epub.js and pdf.js are
 # devDependencies that end up inside dist/, so the server never runs vite and
 # only needs the runtime deps. That keeps small (1–2 GB) boxes out of trouble.
 #
@@ -27,8 +27,8 @@ DEPLOY_HOST="${DEPLOY_HOST:?set DEPLOY_HOST, e.g. DEPLOY_HOST=ubuntu@1.2.3.4 ./d
 DEPLOY_PATH="${DEPLOY_PATH:-.ai-space/apps/dot-lib}"   # relative paths are under the remote home
 SERVICE="${SERVICE:-dot-lib}"
 
-echo "==> Building locally"
-npm run build
+echo "==> Building and type-checking locally"
+bun run build
 
 echo "==> Syncing to ${DEPLOY_HOST}:${DEPLOY_PATH}"
 ssh "$DEPLOY_HOST" "mkdir -p '$DEPLOY_PATH'"
@@ -48,16 +48,18 @@ else
   scp .env "$DEPLOY_HOST:$DEPLOY_PATH/.env"
 fi
 
-echo "==> Installing runtime dependencies"
-ssh "$DEPLOY_HOST" "cd '$DEPLOY_PATH' && npm install --omit=dev --no-audit --no-fund"
-
 APP=dot-lib
 if ssh "$DEPLOY_HOST" "systemctl --user cat 'space-$APP.service' >/dev/null 2>&1"; then
-  # ai-space runs this app (SPACE_SUPERVISOR=space, ai-space docs/supervision.md): restart its unit, never ours.
-  echo "==> Restarting space-$APP.service (ai-space supervises $APP)"
-  ssh "$DEPLOY_HOST" "\$HOME/.local/bin/space app restart '$APP'"
-  echo "  -> $APP restarted (space-$APP.service)"
+  # ai-space runs this app (SPACE_SUPERVISOR=space, ai-space docs/supervision.md): `space app deploy`
+  # installs the runtime dependencies (space.yaml deploy.install), syncs, restarts and waits for /healthz.
+  echo "==> space app deploy $APP (ai-space supervises $APP)"
+  ssh "$DEPLOY_HOST" "\$HOME/.local/bin/space app deploy '$APP'"
+  echo "==> Done. Logs: ssh $DEPLOY_HOST 'journalctl --user -u space-$APP -f'"
+  exit 0
 else
+  echo "==> Installing runtime dependencies"
+  ssh "$DEPLOY_HOST" "cd '$DEPLOY_PATH' && \$HOME/.bun/bin/bun install --production --frozen-lockfile"
+
   echo "==> Installing user systemd unit ${SERVICE}.service"
   remote_dir=$(ssh "$DEPLOY_HOST" "cd '$DEPLOY_PATH' && pwd")
   sed -e "s|@DIR@|${remote_dir}|g" deploy/dot-lib.service |
