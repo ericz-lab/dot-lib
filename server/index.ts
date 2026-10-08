@@ -16,6 +16,7 @@ import {
   type UploadedPart,
 } from "./r2.js";
 import type { BookFormat, BookMeta, Highlight, Progress, Rect } from "./types.js";
+import { buildWidget } from "./widget.js";
 
 const app = new Hono();
 app.use(logger());
@@ -290,8 +291,8 @@ app.put("/api/books/:id/progress", async (c) => {
 
 // ---- panel widget ----
 //
-// ai-space 面板小组件数据端点(契约见 ai-space docs/app-spec.md, widgets/items): {ok, items:[{text,url,time}]}。
-// 取最近有阅读动静的 3 本书,口径与书架一致(读完 / 读至 N% / 未读)。
+// ai-space 面板小组件数据端点(契约见 ai-space docs/app-spec.md, widgets/items + blocks):
+// {ok, items:[{text,url,time}], asOf, staleAfter, blocks:[progress…]}。组装逻辑在 widget.ts。
 // 面板服务端 60s 缓存,这里每次现算即可。
 
 // 小组件链接的绝对前缀。留空则返回相对链接, 由 ai-space 按 space.yaml 的 url 解析。
@@ -312,20 +313,7 @@ app.get("/api/widget", async (c) => {
         })
       )
     ).filter((r): r is { p: Progress; m: BookMeta } => r !== null);
-    const items = rows
-      .sort((a, b) => (b.p.updatedAt || "").localeCompare(a.p.updatedAt || ""))
-      .slice(0, 3)
-      .map(({ p, m }) => {
-        const pct = Math.round((p.percentage || 0) * 100);
-        const started = pct > 0 || !!p.cfi || p.page > 0;
-        const state = pct >= 99 ? "读完" : started ? `读至 ${pct}%` : "未读";
-        return {
-          text: `《${m.title}》${state}`,
-          url: `${SITE_BASE}/#/read/${m.id}`,
-          time: p.updatedAt || "",
-        };
-      });
-    return c.json({ ok: true, items });
+    return c.json(buildWidget(rows, { base: SITE_BASE }));
   } catch (err) {
     return c.json({ ok: false, error: String((err as Error).message || err) });
   }

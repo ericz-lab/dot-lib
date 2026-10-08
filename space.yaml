@@ -30,7 +30,8 @@ service:
 deploy:
   install: bun install --production --frozen-lockfile
 
-# 面板小组件: 最近有阅读动静的 3 本书。契约 {ok, items:[{text,url,time}]}。
+# 面板小组件: items 是最近有阅读动静的 3 本书 (老面板兜底), blocks 是在读的书的进度条状态卡。
+# 契约 {ok, items:[{text,url,time}], asOf, staleAfter, blocks}, 见 server/widget.ts。
 widgets:
   - name: reading
     title: 点·藏书 · 在读

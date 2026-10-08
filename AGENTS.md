@@ -23,6 +23,7 @@
 space.yaml            ★ ai-space 清单：service / widgets / storage.blobs
 server/
 ├── index.ts          ★ 全部路由：/healthz、/api/books*、/api/widget、静态文件、优雅退出
+├── widget.ts         面板小组件 items + blocks 的组装（纯函数，widget.test.ts 测）
 ├── r2.ts             ★ 对象存储客户端：BLOB_URL + S3_* 优先，R2_* 兜底；前缀在这层加减
 └── types.ts          BookMeta / Highlight / Progress
 web/
@@ -48,7 +49,7 @@ Dockerfile, docker-compose.yml  备选方案，当前未用
 
 - 服务端所有 key 相对于 store 根（`books/<id>/...`），`BLOB_URL` 的前缀只在 `r2.ts` 里加减，其他代码不知道前缀存在。
 - 分片上传是无状态的：`uploadId` 和 part 列表由客户端保存并随请求带回。
-- 面板小组件契约（ai-space app-spec，`widgets[].kind: items`）：`GET /api/widget` → `{ok:true, items:[{text,url,time}]}`，取最近有阅读动静的 3 本，口径与书架一致（读完 / 读至 N% / 未读）。`url` 用 `PUBLIC_BASE` 拼绝对地址。
+- 面板小组件契约（ai-space app-spec，`widgets[].kind: items` + blocks）：`GET /api/widget` → `{ok:true, items:[{text,url,time}], asOf, staleAfter, blocks}`，逻辑在 `server/widget.ts`（测试 `server/widget.test.ts`）。`items` 取最近有阅读动静的 3 本，口径与书架一致（读完 / 读至 N% / 未读），给老面板兜底；`blocks` 是在读（已开始、未读完）的书，最近读的在前，每本一个 `progress` 块（百分比、作者作 caption），最多 6 个，第一个是 hero；没有在读的书就是 `[]`。书名只在显示时清理（去下载站标记、丛书名、长营销括号）。app 只存每本书最后一次进度，没有读完时间和逐日记录，所以不出“本月读完 / 本周阅读天数”这类 metric。`url` 用 `PUBLIC_BASE` 拼绝对地址。
 - `/healthz` 只回答进程活着，不碰对象存储；桶是否正常看 `/api/books`。
 - 收到 SIGTERM 后停止接新连接、等在途请求、最多 8 秒退出。
 - 缓存策略：`/assets/*` 永久缓存（带 hash），`/pdfjs/*` 一天，其余 `no-cache`。
@@ -60,6 +61,7 @@ bun install
 bun run dev                                    # Bun 自动读 .env；后端 :8787，前端 :5173
 eval "$(bun <ai-space>/src/index.ts env dot-lib)" && bun run dev   # 用 ai-space 供给的存储变量
 bun run typecheck
+bun test                                       # server/*.test.ts
 bun run build                                  # vite build → dist/client（提交产物）+ 服务端类型检查
 DEPLOY_HOST=<host> ./deploy.sh
 ```
