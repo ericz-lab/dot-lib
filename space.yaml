@@ -9,11 +9,18 @@
 
 spec: 1
 name: dot-lib
-title: 点·藏书
-description: 自托管电子书阅读器：上传 EPUB / PDF / MOBI，在浏览器里阅读、划线、记笔记，数据全部存在对象存储里。
+title: Reading Room
+description: A self-hosted e-book reader. Upload EPUB, PDF or MOBI files, then read, highlight and take notes in the browser; everything is kept in object storage.
 icon: web/public/favicon.svg
 status: active
 repo: https://github.com/Zhang-Shubo/dot-lib.git
+
+i18n:
+  zh:
+    title: 点·藏书
+    description: 自托管电子书阅读器：上传 EPUB / PDF / MOBI，在浏览器里阅读、划线、记笔记，数据全部存在对象存储里。
+    widgets:
+      reading: { title: 点·藏书 · 在读 }
 
 # 常驻服务。ai-space 传入 PORT, 进程只绑 127.0.0.1; /healthz 不碰对象存储。
 service:
@@ -34,7 +41,7 @@ deploy:
 # 契约 {ok, items:[{text,url,time}], asOf, staleAfter, blocks}, 见 server/widget.ts。
 widgets:
   - name: reading
-    title: 点·藏书 · 在读
+    title: Reading Room · Now Reading
     kind: items
     source: /api/widget
     link: /
