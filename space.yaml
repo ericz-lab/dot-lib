@@ -12,8 +12,9 @@ name: dot-lib
 title: Reading Room
 description: A self-hosted e-book reader. Upload EPUB, PDF or MOBI files, then read, highlight and take notes in the browser; everything is kept in object storage.
 icon: web/public/favicon.svg
+url: https://books.ericz.info
 status: active
-repo: https://github.com/Zhang-Shubo/dot-lib.git
+repo: https://github.com/ericz-lab/dot-lib.git
 
 i18n:
   zh:
