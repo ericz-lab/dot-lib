@@ -10,7 +10,7 @@ import {
   AbortMultipartUploadCommand,
 } from "@aws-sdk/client-s3";
 import { Readable } from "node:stream";
-import { mkdir, readdir, readFile, rm, rename, writeFile, open } from "node:fs/promises";
+import { mkdir, open, readdir, readFile, rename, rm, rmdir, writeFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -214,7 +214,12 @@ export function fileStore(dir: string): Store {
       }
     },
     async deleteObject(key) {
-      await rm(path(key), { force: true });
+      const target = path(key);
+      await rm(target, { force: true });
+      // Drop the directories the object leaves empty (books/<id>/), never the store itself.
+      for (let d = dirname(target); relative(dir, d) && !relative(dir, d).startsWith(".."); d = dirname(d)) {
+        if (!(await rmdir(d).then(() => true, () => false))) break;
+      }
     },
     async listKeys(under) {
       const base = join(dir, under);

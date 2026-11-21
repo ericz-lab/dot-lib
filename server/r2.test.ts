@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -30,7 +30,8 @@ describe("resolveConfig", () => {
 
 describe("fileStore", () => {
   test("put, get, list and delete", async () => {
-    const s = fileStore(await fresh());
+    const dir = await fresh();
+    const s = fileStore(dir);
     expect(await s.listKeys("books/")).toEqual([]);
     expect(await s.getObjectBuffer("books/a/meta.json")).toBeNull();
     await s.putObject("books/a/meta.json", '{"id":"a"}', "application/json");
@@ -39,6 +40,9 @@ describe("fileStore", () => {
     expect((await s.getObjectBuffer("books/a/meta.json"))?.toString()).toBe('{"id":"a"}');
     await s.deleteObject("books/a/meta.json");
     expect(await s.listKeys("books/")).toEqual(["books/b/cover"]);
+    expect(await Bun.file(join(dir, "books", "a")).exists()).toBe(false);
+    await s.deleteObject("books/b/cover");
+    expect(await readdir(dir)).toEqual([]);
   });
 
   test("a multipart upload is assembled in part order and leaves nothing behind", async () => {
