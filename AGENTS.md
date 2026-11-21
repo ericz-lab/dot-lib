@@ -14,17 +14,19 @@
 
 - 后端：Bun + Hono（`Bun.serve`，`hono/bun` 的静态文件）+ `@aws-sdk/client-s3`，Bun 直接跑 TS，无构建步骤、无运行时转译。
 - 前端：Vite + 原生 TS + epub.js + pdf.js + vendor 的 mobi.js；构建产物 `dist/client/` **提交进仓库**，服务器不跑 vite。
-- 存储：只有对象存储（Cloudflare R2 或任意 S3 兼容），无数据库。key 布局 `books/<id>/{meta.json, book.epub|book.pdf, cover, highlights.json, progress.json}`。
-- 运行：服务器上用户级 systemd 单元 `dot-lib`，工作目录 `~/.ai-space/apps/dot-lib`，`127.0.0.1:8787`。
+- 存储：只有对象存储（Cloudflare R2 或任意 S3 兼容；没有桶的 space 上是 `BLOB_URL=file://…` 的目录存储，同一套 key），无数据库。key 布局 `books/<id>/{meta.json, book.epub|book.pdf, cover, highlights.json, progress.json}`。
+- 运行：服务器上用户级 systemd 单元 `dot-lib`，工作目录 `~/.ai-space/apps/dot-lib`，`127.0.0.1:8787`（git 部署，`space.yaml` spec 1）。
+- 安装包：`space.release.yaml`（spec 2）描述 `.spaceapp`，`bun run bundle` 把服务端打成 `dist/server/index.js`（不提交），由 space 按需拉起、分配 `PORT`、交接 `BLOB_URL`。打 `v<version>` tag 后 `.github/workflows/release.yml` 构建、签名、发布（需要仓库 secret `SPACE_SIGN_KEY`）。
 
 ## 目录结构
 
 ```
-space.yaml            ★ ai-space 清单：service / widgets / storage.blobs
+space.yaml            ★ ai-space 清单（spec 1，git 部署）：service / widgets / storage.blobs
+space.release.yaml    ★ 安装包清单（spec 2）：组件与 space.yaml 必须一致，server/release.test.ts 检查
 server/
 ├── index.ts          ★ 全部路由：/healthz、/api/books*、/api/widget、静态文件、优雅退出
 ├── widget.ts         面板小组件 items + blocks 的组装（纯函数，widget.test.ts 测）
-├── r2.ts             ★ 对象存储客户端：BLOB_URL + S3_* 优先，R2_* 兜底；前缀在这层加减
+├── r2.ts             ★ 存储：BLOB_URL（s3:// + S3_*，或 file:// 目录）优先，R2_* 兜底；前缀在这层加减（r2.test.ts）
 └── types.ts          BookMeta / Highlight / Progress
 web/
 ├── index.html
@@ -63,6 +65,8 @@ eval "$(bun <ai-space>/src/index.ts env dot-lib)" && bun run dev   # 用 ai-spac
 bun run typecheck
 bun test                                       # server/*.test.ts
 bun run build                                  # vite build → dist/client（提交产物）+ 服务端类型检查
+bun run bundle                                 # build + 服务端打包成 dist/server/index.js（安装包用，不提交）
+bun <ai-space>/src/index.ts app release . --output-dir <dir>   # 本地构建两个 .spaceapp
 DEPLOY_HOST=<host> ./deploy.sh
 ```
 

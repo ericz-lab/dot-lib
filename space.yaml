@@ -49,7 +49,10 @@ widgets:
     size: 2x1
     refresh: 60s
 
+# fallback: 没有 SPACE_S3_* 的 space (比如装安装包的一台新机器) 拿到 data/dot-lib/blobs 文件存储,
+# BLOB_URL=file://…; 有桶的 space 不受影响, 仍是 s3。
 storage:
   blobs:
     backend: s3
     prefix: ""
+    fallback: file

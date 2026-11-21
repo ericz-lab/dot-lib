@@ -2,11 +2,13 @@ import { Hono } from "hono";
 import { serveStatic } from "hono/bun";
 import { logger } from "hono/logger";
 import { nanoid } from "nanoid";
+import { join } from "node:path";
 import {
   abortMultipart,
   completeMultipart,
   createMultipart,
   deleteObject,
+  ensureStore,
   getJson,
   getObjectBuffer,
   listKeys,
@@ -17,6 +19,12 @@ import {
 } from "./r2.js";
 import type { BookFormat, BookMeta, Highlight, Progress, Rect } from "./types.js";
 import { buildWidget } from "./widget.js";
+
+// The installation package runs the bundle dist/server/index.js (`bun run bundle`); the static
+// files below are found relative to the working directory, so start from the app's root.
+if (!Bun.main.endsWith(".ts")) process.chdir(join(import.meta.dir, "..", ".."));
+
+ensureStore();
 
 const app = new Hono();
 app.use(logger());

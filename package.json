@@ -9,8 +9,10 @@
     "dev:server": "bun --watch server/index.ts",
     "dev:web": "vite web",
     "build": "vite build web && tsc -p tsconfig.server.json --noEmit",
+    "bundle": "bun run build && rm -rf dist/server && bun build server/index.ts --target bun --entry-naming \"[name].[ext]\" --outdir dist/server",
     "start": "NODE_ENV=production bun server/index.ts",
-    "typecheck": "tsc -p tsconfig.server.json --noEmit && tsc -p web/tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.server.json --noEmit && tsc -p web/tsconfig.json --noEmit",
+    "test": "bun test"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.658.0",
