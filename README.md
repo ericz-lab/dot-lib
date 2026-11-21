@@ -110,3 +110,7 @@ DEPLOY_HOST=ubuntu@your-server ./deploy.sh
 | GET/POST | `/api/books/:id/highlights` | 划线列表 / 新增（EPUB 用 `cfiRange`+`chapter` 定位，PDF 用 `page`+归一化 `rects`） |
 | PUT/DELETE | `/api/books/:id/highlights/:hid` | 改色改笔记 / 删除 |
 | GET/PUT | `/api/books/:id/progress` | 阅读进度 |
+
+## License
+
+MIT, see [LICENSE](LICENSE). The bundled PDF.js and mobi reader keep their own licenses (`dist/client/pdfjs/**/LICENSE*`, `web/src/vendor/LICENSE-mobi.txt`).

@@ -2,6 +2,7 @@
   "name": "dot-lib",
   "version": "1.0.0",
   "description": "Self-hosted e-book reader backed by Cloudflare R2",
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "concurrently -k \"bun run dev:server\" \"bun run dev:web\"",
