@@ -1,0 +1,65 @@
+# The installation package's declaration (ai-space docs/app-packages.md, docs/app-catalog.md).
+# space.yaml stays spec 1 for the git deployment; the components here (everything but spec,
+# version, requires, offline, launch and build) must equal its own: server/release.test.ts checks.
+# Release: raise `version` (and package.json's), then tag v<version>; .github/workflows/release.yml
+# builds, signs and publishes. `bun <ai-space>/src/index.ts app release . --output-dir <dir>`
+# builds the same packages locally.
+
+spec: 2
+name: dot-lib
+version: 1.0.0
+title: Reading Room
+description: A self-hosted e-book reader. Upload EPUB, PDF or MOBI files, then read, highlight and take notes in the browser; everything is kept in object storage.
+icon: web/public/favicon.svg
+status: active
+repo: https://github.com/ericz-lab/dot-lib.git
+
+i18n:
+  zh:
+    title: 点·藏书
+    description: 自托管电子书阅读器：上传 EPUB / PDF / MOBI，在浏览器里阅读、划线、记笔记，数据全部存在对象存储里。
+    widgets:
+      reading: { title: 点·藏书 · 在读 }
+
+requires:
+  spaceApi: 1
+  bun: 1.3.0
+
+offline:
+  features:
+    - Upload EPUB, PDF and MOBI books, read them, highlight, take notes and keep the reading position, with the library in this Space's file store
+  online:
+    - The library in an S3 bucket, where the Space has one (SPACE_S3_*)
+    - The Fraunces and Noto Serif SC web fonts (system fonts are used offline)
+
+# The bundle `bun run bundle` makes; ai-space hands over PORT and BLOB_URL and stops it when idle.
+launch:
+  kind: process
+  runtime: bun
+  entry: dist/server/index.js
+  mode: on-demand
+  idleTimeoutMs: 300000
+  health: /healthz
+
+# How a checkout becomes the package: in a scratch copy, never in this tree. The package carries
+# the built program only; books and reading state live in the Space's storage, never in the package.
+build:
+  install: bun install --frozen-lockfile
+  run: bun run bundle
+  include: [dist/client, dist/server, web/public/favicon.svg]
+  source: [server, web, package.json, bun.lock, tsconfig.server.json, README.md, LICENSE, AGENTS.md, .env.example]
+
+widgets:
+  - name: reading
+    title: Reading Room · Now Reading
+    kind: items
+    source: /api/widget
+    link: /
+    size: 2x1
+    refresh: 60s
+
+storage:
+  blobs:
+    backend: s3
+    prefix: ""
+    fallback: file
